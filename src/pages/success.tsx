@@ -7,30 +7,35 @@ import { stripe } from "../lib/stripe";
 import { ImageContainer, SuccessContainer } from "../styles/pages/success";
 
 interface SuccessProps {
-  costumerName: string;
+  customerName: string;
   product: {
     name: string;
     imageUrl: string;
   };
 }
 
-export default function Success({ costumerName, product }: SuccessProps) {
+export default function Success({ customerName, product }: SuccessProps) {
   return (
     <>
       <Head>
         <title>Compra efetuada | Ignite Shop</title>
-
         <meta name="robots" content="noindex" />
       </Head>
 
       <SuccessContainer>
         <h1>Compra efetuada</h1>
+
         <ImageContainer>
-          <Image src={product.imageUrl} width={120} height={110} alt="" />
+          <Image
+            src={product.imageUrl}
+            width={120}
+            height={110}
+            alt={product.name}
+          />
         </ImageContainer>
 
         <p>
-          Uhuul <strong>{costumerName}</strong>, sua{" "}
+          Uhuul <strong>{customerName}</strong>, sua{" "}
           <strong>{product.name}</strong> já está a caminho da sua casa.
         </p>
 
@@ -41,7 +46,9 @@ export default function Success({ costumerName, product }: SuccessProps) {
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ query }) => {
-  if (!query.session_id) {
+  const sessionId = query.session_id as string | undefined;
+
+  if (!sessionId) {
     return {
       redirect: {
         destination: "/",
@@ -50,29 +57,26 @@ export const getServerSideProps: GetServerSideProps = async ({ query }) => {
     };
   }
 
-  const sessionId = String(query.session_id);
-
   const session = await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ["line_items", "line_items.data.price.product"],
   });
 
-  if (!session.customer_details || !session.customer_details.name) {
-    throw new Error("Customer details are missing in the session.");
+  const customerName = session.customer_details?.name ?? "Cliente";
+
+  const product = session.line_items?.data[0]?.price?.product as Stripe.Product;
+
+  if (!product) {
+    return {
+      redirect: {
+        destination: "/",
+        permanent: false,
+      },
+    };
   }
-
-  const costumerName = session.customer_details.name;
-
-  if (!session.line_items || !session.line_items.data[0]?.price?.product) {
-    throw new Error(
-      "Line items or product details are missing in the session."
-    );
-  }
-
-  const product = session.line_items.data[0].price.product as Stripe.Product;
 
   return {
     props: {
-      costumerName,
+      customerName,
       product: {
         name: product.name,
         imageUrl: product.images[0],

@@ -22,13 +22,12 @@ export const Product = styled("div", {
   img: {
     objectFit: "cover",
   },
-
   footer: {
     position: "absolute",
     bottom: "0.25rem",
     left: "0.25rem",
     right: "0.25rem",
-    padding: "2rem",
+    padding: "1rem 2rem",
 
     borderRadius: 6,
 
@@ -42,12 +41,23 @@ export const Product = styled("div", {
     opacity: 0,
     transition: "all 0.2s ease-in-out",
 
-    strong: { fontSize: "$lg", color: "$gray100" },
+    div: {
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      gap: "0.25rem",
 
-    span: {
-      fontSize: "$xl",
-      fontWeight: "bold",
-      color: "$green300",
+      strong: { fontSize: "0.875rem", color: "$gray100" },
+      span: {
+        fontSize: "$xl",
+        fontWeight: "bold",
+        color: "$green300",
+      },
+    },
+
+    img: {
+      width: "40px",
+      height: "40px",
     },
   },
 

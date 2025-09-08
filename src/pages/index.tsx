@@ -1,18 +1,14 @@
 import Image from "next/image";
 import { GetStaticProps } from "next";
-
 import { useKeenSlider } from "keen-slider/react";
-
 import { stripe } from "../lib/stripe";
-
 import "keen-slider/keen-slider.min.css";
-
 import Stripe from "stripe";
-
 import { styled } from "@stitches/react";
 import Link from "next/link";
 import { HomeContainer, Product } from "../styles/pages/home";
 import Head from "next/head";
+import bag from "../assets/bag.svg";
 
 interface HomeProps {
   products: {
@@ -52,24 +48,24 @@ export default function Home({ products }: HomeProps) {
         <title>Home | Ignite Shop</title>
       </Head>
       <HomeContainer ref={sliderRef} className="keen-slider">
-        {products.map((product) => {
-          return (
-            <Link
-              href={`/product/${product.id}`}
-              key={product.id}
-              prefetch={false}
-            >
-              <Product className="keen-slider__slide">
-                <Image src={product.imageUrl} width={520} height={480} alt="" />
-
-                <footer>
+        {products.map((product) => (
+          <Link
+            href={`/product/${product.id}`}
+            key={product.id}
+            prefetch={false}
+          >
+            <Product className="keen-slider__slide">
+              <Image src={product.imageUrl} width={520} height={480} alt="" />
+              <footer>
+                <div>
                   <strong>{product.name}</strong>
                   <span>{product.price}</span>
-                </footer>
-              </Product>
-            </Link>
-          );
-        })}
+                </div>
+                <Image src={bag} alt="" />
+              </footer>
+            </Product>
+          </Link>
+        ))}
       </HomeContainer>
     </>
   );
@@ -83,15 +79,16 @@ export const getStaticProps: GetStaticProps = async () => {
   const products = response.data.map((product) => {
     const price = product.default_price as Stripe.Price;
 
+    const formattedPrice = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format((price.unit_amount ?? 0) / 100);
+
     return {
       id: product.id,
       name: product.name,
       imageUrl: product.images[0],
-
-      price: new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      }).format((price.unit_amount ?? 0) / 100),
+      price: formattedPrice,
     };
   });
 
@@ -99,6 +96,6 @@ export const getStaticProps: GetStaticProps = async () => {
     props: {
       products,
     },
-    revalidate: 60 * 60 * 2, // 2 hours,
+    revalidate: 60 * 60 * 2, // 2 horas
   };
 };

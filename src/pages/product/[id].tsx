@@ -1,42 +1,32 @@
-import axios from "axios";
 import { GetStaticPaths, GetStaticProps } from "next";
 import Image from "next/image";
+import Head from "next/head";
 import Stripe from "stripe";
 import { stripe } from "../../lib/stripe";
+import { useCart } from "../../contexts/CartContext";
 import { ImageContainer, ProductContainer, ProductDetails } from "../product";
-import { useState } from "react";
-import Head from "next/head";
+
+interface ProductData {
+  id: string;
+  name: string;
+  imageUrl: string;
+  price: number;
+  description: string;
+  defaultPriceId: string;
+}
 
 interface ProductProps {
-  product: {
-    id: string;
-    name: string;
-    imageUrl: string;
-    price: string;
-    description: string;
-    defaultPriceId: string;
-  };
+  product: ProductData | null;
 }
 
 export default function Product({ product }: ProductProps) {
-  const [isCreatingCheckoutSession, setIsCreatingCheckoutSession] =
-    useState(false);
+  const { addToCart } = useCart();
 
-  async function handleBuyButton() {
-    try {
-      setIsCreatingCheckoutSession(true);
+  if (!product) return <p>Produto não encontrado.</p>;
 
-      const response = await axios.post("/api/checkout", {
-        priceId: product.defaultPriceId,
-      });
-
-      const { checkoutUrl } = response.data;
-
-      window.location.href = checkoutUrl;
-    } catch (err) {
-      setIsCreatingCheckoutSession(false);
-
-      alert("Falha ao redirecionar ao checkout!");
+  function handleAddToCart() {
+    if (product) {
+      addToCart(product);
     }
   }
 
@@ -48,21 +38,28 @@ export default function Product({ product }: ProductProps) {
 
       <ProductContainer>
         <ImageContainer>
-          <Image src={product.imageUrl} width={520} height={480} alt="" />
+          <Image
+            src={product.imageUrl}
+            width={520}
+            height={480}
+            alt={product.name}
+          />
         </ImageContainer>
 
         <ProductDetails>
           <h1>{product.name}</h1>
-          <span>{product.price}</span>
+          <span>
+            {product.price.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
 
           <p>{product.description}</p>
 
-          <button
-            disabled={isCreatingCheckoutSession}
-            onClick={handleBuyButton}
-          >
-            Comprar agora
-          </button>
+          <button onClick={handleAddToCart}>Colocar na sacola</button>
         </ProductDetails>
       </ProductContainer>
     </>
@@ -70,45 +67,44 @@ export default function Product({ product }: ProductProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  return {
-    paths: [
-      {
-        params: { id: "prod_MLH5Wy0Y97hDAC" },
-      },
-    ],
-    fallback: "blocking",
-  };
-};
-
-export const getStaticProps: GetStaticProps<any, { id: string }> = async ({
-  params,
-}) => {
-  if (!params || !params.id) {
-    throw new Error("Product ID is missing in getStaticProps.");
-  }
-
-  const productId = params.id;
-
-  const product = await stripe.products.retrieve(productId, {
-    expand: ["default_price"],
+  const products = await stripe.products.list({
+    expand: ["data.default_price"],
+    limit: 10,
   });
 
-  const price = product.default_price as Stripe.Price;
+  const paths = products.data.map((product) => ({
+    params: { id: product.id },
+  }));
 
-  return {
-    props: {
-      product: {
-        id: product.id,
-        name: product.name,
-        imageUrl: product.images[0],
-        price: new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format((price.unit_amount ?? 0) / 100),
-        description: product.description,
-        defaultPriceId: price.id,
+  return { paths, fallback: true };
+};
+
+export const getStaticProps: GetStaticProps<ProductProps> = async ({
+  params,
+}) => {
+  if (!params?.id || typeof params.id !== "string")
+    return { props: { product: null } };
+
+  try {
+    const product = await stripe.products.retrieve(params.id, {
+      expand: ["default_price"],
+    });
+    const price = product.default_price as Stripe.Price;
+
+    return {
+      props: {
+        product: {
+          id: product.id,
+          name: product.name,
+          imageUrl: product.images[0],
+          price: (price.unit_amount || 0) / 100,
+          description: product.description || "",
+          defaultPriceId: price.id,
+        },
       },
-    },
-    revalidate: 60 * 60 * 1, // 1 hour
-  };
+      revalidate: 3600,
+    };
+  } catch {
+    return { props: { product: null } };
+  }
 };
