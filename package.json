@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@stitches/react": "^1.2.8",
+    "@types/stripe": "^8.0.417",
     "axios": "^1.11.0",
     "keen-slider": "^6.8.6",
     "next": "15.4.6",

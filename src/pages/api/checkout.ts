@@ -1,36 +1,40 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { stripe } from "../../lib/stripe";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2025-07-30.basil",
+});
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed." });
+    return res.status(405).end("Method not allowed");
   }
 
-  const { priceId } = req.body;
+  try {
+    const { items } = req.body;
 
-  if (!priceId) {
-    return res.status(400).json({ error: "Price not found." });
-  }
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ error: "Items inválidos." });
+    }
 
-  const successUrl = `${process.env.NEXT_URL}/success?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${process.env.NEXT_URL}/`;
-
-  const checkoutSession = await stripe.checkout.sessions.create({
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    mode: "payment",
-    line_items: [
-      {
+    const checkoutSession = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      line_items: items.map((priceId: string) => ({
         price: priceId,
         quantity: 1,
-      },
-    ],
-  });
+      })),
+      success_url:
+        "http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "http://localhost:3000/cancel",
+    });
 
-  return res.status(201).json({
-    checkoutUrl: checkoutSession.url,
-  });
+    return res.status(201).json({ checkoutUrl: checkoutSession.url });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(400).json({ error: err.message });
+  }
 }

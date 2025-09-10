@@ -22,17 +22,34 @@ function InnerApp({ Component, pageProps }: AppProps) {
   const handleCloseCartModal = () => setIsCartOpen(false);
 
   async function handleCheckout() {
+    if (!cartItems.length) {
+      alert("Carrinho vazio!");
+      return;
+    }
+
+    const itemsForCheckout = cartItems
+      .filter((item) => !!item.defaultPriceId)
+      .map((item) => ({ price: item.defaultPriceId, quantity: 1 }));
+
+    if (!itemsForCheckout.length) {
+      alert("Nenhum item válido para checkout!");
+      return;
+    }
+
     try {
       const response = await axios.post("/api/checkout", {
-        items: cartItems.map((item) => ({
-          price: item.defaultPriceId,
-          quantity: 1,
-        })),
+        items: cartItems.map((item) => item.defaultPriceId),
       });
 
       const { checkoutUrl } = response.data;
-      window.location.href = checkoutUrl;
-    } catch {
+
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        alert("Erro ao gerar o checkout.");
+      }
+    } catch (err: any) {
+      console.error("Erro no checkout:", err.response?.data || err.message);
       alert("Falha ao redirecionar para o checkout!");
     }
   }
@@ -61,7 +78,7 @@ function InnerApp({ Component, pageProps }: AppProps) {
           ) : (
             <>
               {cartItems.map((item) => (
-                <div className="product" key={item.id}>
+                <div className="product" key={item.id + item.defaultPriceId}>
                   <div className="product-image">
                     <Image
                       src={item.imageUrl}
